@@ -11,8 +11,8 @@ def CATEGORIES():
     # Episodes
     sessions[__language__(30001)] = {
         'feed': 'http://www.dancetrippin.tv/video/list/dj',
-        'image': '',
-        'plot': __language__(30206),
+        'image': os.path.join(__settings__.getAddonInfo('path'), 'resources', 'media', 'episodes.jpg'),
+        'plot':  '',
         'genre': 'Electonic',
         'count': 0
     }
@@ -20,27 +20,26 @@ def CATEGORIES():
     # SOL Sessions
     sessions[__language__(30002)] = {
         'feed': 'http://www.dancetrippin.tv/video/list/sol',
-        'image': '',
-        'plot': __language__(30200),
+        'image': os.path.join(__settings__.getAddonInfo('path'), 'resources', 'media', 'sol.jpg'),
+        'plot': '',
         'genre': 'Electonic'
     }
 
     # Ibiza Global Radio
     sessions[__language__(30003)] = {
         'feed': 'http://www.dancetrippin.tv/video/list/igr',
-        'image': '',
-        'plot': __language__(30202),
+        'image': os.path.join(__settings__.getAddonInfo('path'), 'resources', 'media', 'igr.jpg'),
+        'plot': '',
         'genre': 'Electonic'
     }
 
     # Other videos
     sessions[__language__(30004)] = {
         'feed': 'http://www.dancetrippin.tv/video/list/other',
-        'image': '',
-        'plot': __language__(30208),
+        'image': os.path.join(__settings__.getAddonInfo('path'), 'resources', 'media', 'other.jpg'),
+        'plot': '',
         'genre': 'Electonic'
     }
-
 
     # Loop through each of the sessions and add them as directories.
     x = 2
@@ -53,7 +52,7 @@ def CATEGORIES():
 
 def INDEX(name, url, page):
     # Load the JSON feed.
-    req = urllib2.Request(requestUrl)
+    req = urllib2.Request(url)
     req.add_header('User-Agent', "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-GB; rv:1.9.2.8) Gecko/20100722 Firefox/3.6.8")
     data = urllib2.urlopen(req)
 
@@ -70,84 +69,68 @@ def INDEX(name, url, page):
     n = 0;
 
     # Wrap in a try/catch to protect from broken JSON feeds.
-    try:
-        for item in dj_data:
-            # Set up the pagination properly.
-            n += 1
-            if (n < start):
-                # Skip this episode since it's before the page starts.
-                continue
-            if (n >= start + episodesperpage):
-                # Add a go to next page link, and skip the rest of the loop.
-                addDir(
-                    name = __language__(30300),
-                    url = url,
-                    mode= 1,
-                    iconimage = os.path.join(__settings__.getAddonInfo('path'), 'resources', 'media', 'next.png'),
-                    info = {},
-                    page = page + 1
-                )
-                break
+#    try:
+    for item in dj_data:
+        # Set up the pagination properly.
+        n += 1
+        if (n < start):
+            # Skip this episode since it's before the page starts.
+            continue
+        if (n >= start + episodesperpage):
+            # Add a go to next page link, and skip the rest of the loop.
+            addDir(
+                name = __language__(30300),
+                url = url,
+                mode= 1,
+                iconimage = os.path.join(__settings__.getAddonInfo('path'), 'resources', 'media', 'next.png'),
+                info = {},
+                page = page + 1
+            )
+            break
 
-            # Load up the initial episode information.
-            info = {}
-            title = unescape(item['title'])
-            info['title'] = str(n) + '. '
-            if (title):
-                info['title'] += title.string
-            info['tvshowtitle'] = name
-            info['count'] = count
-            count += 1 # Increment the show count.
+        # Load up the initial episode information.
+        info = {}
+        title = item['title']
+        number = item['number']
+        info['title'] = str(number) + '. '
+        #info['title'] = str(n) + '. '
+        if (title):
+            info['title'] += title
+        info['tvshowtitle'] = name
+        info['count'] = count
+        count += 1 # Increment the show count.
 
-            # Get the video enclosure.
-            video = ''
-            #enclosure = item.find('enclosure')
-            #if (enclosure != None):
-            #    video = enclosure.get('href')
-            #    if (video == None):
-            #        video = enclosure.get('url')
-            #    if (video == None):
-            #        video = ''
-            #    size = enclosure.get('length')
-            #    if (size != None):
-            #        info['size'] = int(size)
+        # Get the actual video. We take a time knock here as we need to hit the web again to get
+        # the real video link.
+        video = "http://www.dancetrippin.tv/video/embed/" + item['slug']
 
-            # TODO: Parse the date correctly.
-            date = ''
-            #pubdate = item.find('pubDate')
-            #if (pubdate != None):
-            #    date = pubdate.string
-            #    # strftime("%d.%m.%Y", item.updated_parsed)
+        # Date
+        date = ''
 
-            # Plot outline.
-            #summary = item.description
-            #if (summary != None):
-            #    info['plot'] = info['plotoutline'] = summary.string.strip()
+        # Plot.
+        description = item['description']
+        if (description != None):
+            # Attempt to strip the HTML tags.
+            try:
+                info['plot'] = re.sub(r'<[^>]*?>', '', description)
+            except:
+                info['plot'] = description
 
-            # Plot.
-            description = item['description']
-            if (description != None):
-                # Attempt to strip the HTML tags.
-                try:
-                    info['plot'] = re.sub(r'<[^>]*?>', '', description.string)
-                except:
-                    info['plot'] = description.string
+        # Author/Director.
+        author = item['dj']
+        if (author != None):
+            info['cast'] = author
 
-            # Author/Director.
-            author = item['dj']
-            if (author != None):
-                info['director'] = author.string
+        # Load the self-closing media:thumbnail data.
+        thumbnail = ''
+        mediathumbnail = "http://www.dancetrippin.tv/media/" + item['image']
+        if (mediathumbnail):
+            thumbnail = mediathumbnail
 
-            # Load the self-closing media:thumbnail data.
-            thumbnail = ''
-            mediathumbnail = "http://www.dancetrippin.tv/video/media/" + item['image']
-            if (mediathumbnail):
-                thumbnail = mediathumbnail[0]['url']
-
-            # Add the episode link.
-            addLink(info['title'], video, date, thumbnail, info)
-    except:
-       pass
+        # Add the episode link.
+        addLink(info['title'], video, date, thumbnail, info)
+#    except:
+#       pass
 
 def get_params():
         param=[]
@@ -217,5 +200,6 @@ if mode==None or url==None or len(url)<1:
 elif mode==1:
         INDEX(name, url, page)
 
+print "XX: we are here :" + str(url) + ":"
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
